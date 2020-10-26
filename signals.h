@@ -55,13 +55,9 @@ struct signal<void (Args...)>
             slot = std::move(other.slot);
             sig = other.sig;
             if (other.is_linked()) {
-                other.insert(*this);
-                typename connections_t::const_iterator new_it = sig->connections.get_iterator(*this);
-                for (iteration_token *token = sig->top_token; token; token = token->next) {
-                    if (token->current != sig->connections.end() && &*token->current == this) {
-                        token->current = new_it;
-                    }
-                }
+                auto it = sig->connections.get_iterator(other);
+                ++it;
+                sig->connections.insert(it, *this);
                 other.disconnect();
             }
         }

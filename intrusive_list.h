@@ -56,10 +56,6 @@ namespace intrusive
 
         using list_element_base::is_linked;
 
-        void insert(list_element& other) noexcept {
-            list_element_base::insert(other);
-        }
-
         template <typename T, typename Tag1>
         friend struct list;
 
