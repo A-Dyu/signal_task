@@ -67,20 +67,3 @@ void intrusive::list_element_base::splice(list_element_base& first, list_element
 bool intrusive::list_element_base::is_linked() const noexcept {
     return next != nullptr;
 }
-
-void intrusive::list_element_base::swap(list_element_base& other) noexcept {
-    assert(next == prev);
-    assert(other.next == other.prev);
-    change(other);
-    other.change(*this);
-    std::swap(next, other.next);
-    std::swap(prev, other.prev);
-}
-
-void intrusive::list_element_base::change(list_element_base& other) noexcept {
-    if (next)
-        next->prev = &other;
-    if (prev)
-        prev->next = &other;
-}
-

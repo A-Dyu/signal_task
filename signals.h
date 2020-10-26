@@ -20,18 +20,14 @@ struct signal<void (Args...)>
 
         connection(signal* sig, slot_t&& slot) : slot(std::move(slot)), sig(sig) {}
 
-        connection(connection&& other): slot(std::move(other.slot)), sig(other.sig) {
-            if (other.is_linked()) {
-                other.insert(*this);
-                other.disconnect();
-            }
+        connection(connection&& other): connection() {
+            replace_connection(other);
         }
 
         connection& operator=(connection&& other) {
             if (&other != this) {
-                connection safe;
-                swap(safe);
-                swap(other);
+                disconnect();
+                replace_connection(other);
             }
             return *this;
         }
@@ -52,15 +48,23 @@ struct signal<void (Args...)>
             }
         }
 
-        void swap(connection& other) {
-            using std::swap;
-            intrusive::list_element<connection_tag>::swap(other);
-            swap(slot, other.slot);
-            swap(sig, other.sig);
-        }
-
         slot_t slot;
         signal* sig;
+    private:
+        void replace_connection(connection& other) {
+            slot = std::move(other.slot);
+            sig = other.sig;
+            if (other.is_linked()) {
+                other.insert(*this);
+                typename connections_t::const_iterator new_it = sig->connections.get_iterator(*this);
+                for (iteration_token *token = sig->top_token; token; token = token->next) {
+                    if (token->current != sig->connections.end() && &*token->current == this) {
+                        token->current = new_it;
+                    }
+                }
+                other.disconnect();
+            }
+        }
     };
 
     using connections_t = intrusive::list<connection, connection_tag>;

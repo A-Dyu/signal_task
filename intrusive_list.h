@@ -21,8 +21,6 @@ namespace intrusive
         void insert(list_element_base&) noexcept;
         void splice(list_element_base& first, list_element_base& last) noexcept;
         bool is_linked() const noexcept;
-        void swap(list_element_base& other) noexcept;
-        void change(list_element_base& other) noexcept;
 
         list_element_base* prev;
         list_element_base* next;
@@ -60,10 +58,6 @@ namespace intrusive
 
         void insert(list_element& other) noexcept {
             list_element_base::insert(other);
-        }
-
-        void swap(list_element& other) noexcept {
-            list_element_base::swap(other);
         }
 
         template <typename T, typename Tag1>
@@ -214,6 +208,14 @@ namespace intrusive
         iterator insert(const_iterator pos, T&) noexcept;
         iterator erase(const_iterator pos) noexcept;
         void splice(const_iterator pos, list&, const_iterator first, const_iterator last) noexcept;
+
+        iterator get_iterator(T& element) noexcept {
+            return iterator(static_cast<list_element<Tag>*>(&element));
+        }
+
+        const_iterator get_iterator(T& element) const noexcept {
+            return const_iterator(static_cast<list_element<Tag>*>(&element));
+        }
 
     private:
         mutable list_element_base fake;
