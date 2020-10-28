@@ -38,18 +38,17 @@ struct signal<void (Args...)>
 
         void disconnect() {
             if (this->is_linked()) {
-                slot = {};
                 for (iteration_token *token = sig->top_token; token; token = token->next) {
                     if (token->current != sig->connections.end() && &*token->current == this) {
                         token->current++;
                     }
                 }
-                this->unlink();
+                clear();
             }
         }
 
-        slot_t slot;
-        signal* sig;
+        friend struct signal;
+
     private:
         void replace_connection(connection& other) {
             slot = std::move(other.slot);
@@ -61,17 +60,41 @@ struct signal<void (Args...)>
                 other.disconnect();
             }
         }
+
+        void clear() noexcept {
+            this->unlink();
+            slot = {};
+            sig = nullptr;
+        }
+
+        slot_t slot;
+        signal* sig;
     };
 
     using connections_t = intrusive::list<connection, connection_tag>;
 
     struct iteration_token {
-        explicit iteration_token(signal const* sig) : current(sig->connections.begin()), next(sig->top_token), destroyed(false) {
+        explicit iteration_token(signal const* sig) : current(sig->connections.begin()), next(sig->top_token), sig(sig) {
             sig->top_token = this;
         }
+
+        bool is_destroyed() const noexcept {
+            return sig == nullptr;
+        }
+
+        void set_destroyed() noexcept {
+            sig = nullptr;
+        }
+
+        ~iteration_token() {
+            if (!is_destroyed()) {
+                sig->top_token = next;
+            }
+        }
+
         typename connections_t::const_iterator current;
         iteration_token* next;
-        bool destroyed;
+        signal const* sig;
     };
 
     signal() = default;
@@ -80,11 +103,11 @@ struct signal<void (Args...)>
     signal& operator=(signal const&) = delete;
 
     ~signal() {
-        while (!connections.empty()) {
-            connections.front().disconnect();
-        }
         for (iteration_token* tok = top_token; tok; tok = tok->next) {
-            tok->destroyed = true;
+            tok->set_destroyed();
+        }
+        while (!connections.empty()) {
+            connections.front().clear();
         }
     };
 
@@ -96,20 +119,14 @@ struct signal<void (Args...)>
 
     void operator()(Args... args) const {
         iteration_token token(this);
-        try {
-            while (token.current != connections.end()) {
-                auto safe = token.current;
-                token.current++;
-                safe->slot(args...);
-                if (token.destroyed) {
-                    return;
-                }
+        while (token.current != connections.end()) {
+            auto safe = token.current;
+            token.current++;
+            safe->slot(args...);
+            if (token.is_destroyed()) {
+                return;
             }
-        } catch(...) {
-            top_token = token.next;
-            throw;
         }
-        top_token = token.next;
     }
 
 private:
